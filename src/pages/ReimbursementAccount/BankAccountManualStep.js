@@ -1,4 +1,4 @@
-import React, {useCallback} from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import _ from 'underscore';
 import {Image} from 'react-native';
 import lodashGet from 'lodash/get';
@@ -19,6 +19,7 @@ import Form from '../../components/Form';
 import shouldDelayFocus from '../../libs/shouldDelayFocus';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import StepPropTypes from './StepPropTypes';
+import * as ErrorUtils from '../../libs/ErrorUtils';
 
 const propTypes = {
     ..._.omit(StepPropTypes, _.keys(withLocalizePropTypes)),
@@ -27,6 +28,7 @@ const propTypes = {
 function BankAccountManualStep(props) {
     const {translate, preferredLocale} = useLocalize();
     const {reimbursementAccount, reimbursementAccountDraft} = props;
+    const [isAccountNumberInvalid, setIsAccountNumberInvalid] = useState(false);
     /**
      * @param {Object} values - form input values passed by the Form component
      * @returns {Object}
@@ -68,6 +70,18 @@ function BankAccountManualStep(props) {
         [reimbursementAccount, reimbursementAccountDraft],
     );
 
+    useEffect(() => {
+        const {accountNumber} = reimbursementAccountDraft;
+        const error = reimbursementAccount.error || ErrorUtils.getLatestErrorMessage(reimbursementAccount) || '';
+
+        // Backend errors are only returned in English at the moment. This can be updated in the future to
+        // use the translated string for "account number" when backend errors are being translated to the
+        // current selected language.
+        if (error && accountNumber && error.toLowerCase().includes('account number')) {
+            setIsAccountNumberInvalid(true);
+        }
+    }, [reimbursementAccount, reimbursementAccountDraft]);
+
     const shouldDisableInputs = Boolean(lodashGet(reimbursementAccount, 'achData.bankAccountID'));
 
     return (
@@ -93,7 +107,7 @@ function BankAccountManualStep(props) {
                     source={exampleCheckImage(preferredLocale)}
                 />
                 <TextInput
-                    autoFocus
+                    autoFocus={!isAccountNumberInvalid}
                     shouldDelayFocus={shouldDelayFocus}
                     inputID="routingNumber"
                     label={translate('bankAccount.routingNumber')}
@@ -106,6 +120,8 @@ function BankAccountManualStep(props) {
                     shouldUseDefaultValue={shouldDisableInputs}
                 />
                 <TextInput
+                    autoFocus={isAccountNumberInvalid}
+                    shouldDelayFocus={shouldDelayFocus}
                     inputID="accountNumber"
                     containerStyles={[styles.mt4]}
                     label={translate('bankAccount.accountNumber')}
